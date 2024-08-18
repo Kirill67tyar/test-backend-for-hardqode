@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     'courses.apps.CoursesConfig',
     'users.apps.UsersConfig',
     'drf_spectacular',
+    'django_extensions',
 ]
 
 MIDDLEWARE = [
@@ -147,6 +148,10 @@ DJOSER = {
     "SERIALIZERS": {
         "user": "api.v1.serializers.user_serializer.CustomUserSerializer",
         "current_user": "api.v1.serializers.user_serializer.CustomUserSerializer",
+        'user_create': 'api.v1.serializers.user_serializer.CustomUserCreateSerializer',
+
     },
     "LOGIN_FIELD": "email",
 }
+
+APPEND_SLASH = False  # ! под вопросом
