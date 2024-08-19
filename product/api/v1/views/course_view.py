@@ -1,3 +1,5 @@
+from django.db.models import Count, F, ExpressionWrapper, FloatField, Avg, Value, IntegerField
+from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404
 from rest_framework import status, viewsets, permissions
 from rest_framework.decorators import action
@@ -60,15 +62,13 @@ class GroupViewSet(viewsets.ModelViewSet):
 
 class CourseViewSet(viewsets.ModelViewSet):
     """Курсы """
-
-    queryset = Course.objects.select_related(
-        'author',
-    ).annotate(
-        students_count=Count('students'),
-        lessons_count=Count('lessons'),
-    ).prefetch_related('lessons')
+    queryset = Course.objects.select_related('author').prefetch_related('lessons')
 
     permission_classes = (ReadOnlyOrIsAdmin,)
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        return queryset
 
     def get_serializer_class(self):
         if self.action in ['list', 'retrieve',]:
