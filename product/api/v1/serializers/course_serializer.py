@@ -126,17 +126,10 @@ class CourseSerializer(serializers.ModelSerializer):
     lessons = MiniLessonSerializer(many=True, read_only=True)
     lessons_count = serializers.SerializerMethodField(read_only=True)
     students_count = serializers.SerializerMethodField(read_only=True)
+    groups_count = serializers.SerializerMethodField(read_only=True)  # ! тестовое поле, нужно убрать
     groups_filled_percent = serializers.SerializerMethodField(read_only=True)
     demand_course_percent = serializers.SerializerMethodField(read_only=True)
-    """
-    Необходимо отобразить список всех продуктов на платформе, к каждому продукту приложить информацию:
-
-    1 - Количество учеников занимающихся на продукте.
-    2 - На сколько % заполнены группы? (среднее значение по количеству участников в группах 
-        от максимального значения участников в группе, где максимальное = 30).
-    3 - Процент приобретения продукта (рассчитывается исходя из количества полученных доступов к продукту 
-        деленное на общее количество пользователей на платформе).
-    """
+    
     def get_lessons_count(self, obj):
         """Количество уроков в курсе."""
         return obj.lessons_count
@@ -145,13 +138,21 @@ class CourseSerializer(serializers.ModelSerializer):
         """Общее количество студентов на курсе."""
         return obj.students_count
 
+    def get_groups_count(self, obj):  # ! тестовое поле, нужно убрать
+        """Процент заполнения групп, если в группе максимум 30 чел.."""
+        return obj.groups_count
+    
     def get_groups_filled_percent(self, obj):
         """Процент заполнения групп, если в группе максимум 30 чел.."""
-        # TODO Доп. задание
+        if obj.groups_count > 0:
+            return round(obj.students_count / (obj.groups_count * 30 / 100), 2)
+        return 0.0
+    
 
     def get_demand_course_percent(self, obj):
         """Процент приобретения курса."""
-        # TODO Доп. задание
+        return round(obj.students_count / self.context['total_users_count'] * 100, 2)
+
 
     class Meta:
         model = Course
@@ -165,6 +166,7 @@ class CourseSerializer(serializers.ModelSerializer):
             'lessons',
             'demand_course_percent',
             'students_count',
+            'groups_count',  # ! тестовое поле, нужно убрать
             'groups_filled_percent',
         )
 

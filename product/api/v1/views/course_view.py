@@ -1,4 +1,4 @@
-from django.db.models import Count, F, ExpressionWrapper, FloatField, Avg, Value, IntegerField
+from django.db.models import Count, F, ExpressionWrapper, FloatField, Avg, Value, IntegerField, OuterRef, Subquery, Q
 from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404
 from rest_framework import status, viewsets, permissions
@@ -15,7 +15,7 @@ from api.v1.serializers.course_serializer import (CourseSerializer,
                                                   GroupSerializer,
                                                   LessonSerializer)
 from api.v1.serializers.user_serializer import SubscriptionSerializer
-from courses.models import Course
+from courses.models import Course, Group, Lesson
 from users.models import Subscription
 
 
@@ -62,12 +62,50 @@ class GroupViewSet(viewsets.ModelViewSet):
 
 class CourseViewSet(viewsets.ModelViewSet):
     """Курсы """
-    queryset = Course.objects.select_related('author').prefetch_related('lessons')
+    queryset = Course.objects.select_related(
+        'author').prefetch_related('lessons')
 
     permission_classes = (ReadOnlyOrIsAdmin,)
 
     def get_queryset(self):
-        queryset = super().get_queryset()
+        user = self.request.user
+        student_count_subquery = Subscription.objects.filter(
+            course=OuterRef('pk')
+        ).values(
+            'course'
+        ).annotate(
+            count=Count('user')
+        ).values('count')
+
+        group_count_subquery = Group.objects.filter(
+            course=OuterRef('pk')
+        ).values(
+            'course'
+        ).annotate(
+            count=Count('pk')
+        ).values('count')
+
+        lesson_count_subquery = Lesson.objects.filter(
+            course=OuterRef('pk')
+        ).values(
+            'course'
+        ).annotate(
+            count=Count('pk')
+        ).values('count')
+
+        queryset = super().get_queryset().annotate(
+            students_count=Coalesce(
+                Subquery(student_count_subquery), Value(0)
+            ),
+            groups_count=Coalesce(
+                Subquery(group_count_subquery), Value(0)
+            ),
+            lessons_count=Coalesce(
+                Subquery(lesson_count_subquery), Value(0)
+            ),
+        ).exclude(
+            students__user=user
+        )
         return queryset
 
     def get_serializer_class(self):
@@ -76,31 +114,12 @@ class CourseViewSet(viewsets.ModelViewSet):
         elif self.action in ('pay', ):
             return SubscriptionSerializer
         return CreateCourseSerializer
-
-    def get_queryset(self):
-        a = 1
-        user = self.request.user
-        queryset = super().get_queryset().exclude(students__user=user)
-        return queryset
-
-    # @action(
-    #     detail=False,
-    #     methods=['get', ],
-    #     url_path='courses',
-    #     url_name='courses',
-    #     permission_classes=[
-    #         # permissions.IsAdminUser,
-    #         permissions.IsAuthenticated,
-    #         # permissions.AllowAny,
-    #     ],
-    # )
-    # def courses(self, request):
-    #     return self.list(request)
-
-
-# Реализовать API оплаты продукты за бонусы. Назовем его …/pay/ (3 балла)
-# По факту оплаты и списания бонусов с баланса пользователя должен быть открыт доступ к курсу. (2 балла)
-# api/v1/courses/1/pay
+    
+    def get_serializer_context(self):
+        total_users_count = User.objects.filter(is_active=True).count()        
+        context = super().get_serializer_context()
+        context['total_users_count'] = total_users_count
+        return context
 
 
     @action(
