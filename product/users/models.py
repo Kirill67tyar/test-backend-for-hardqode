@@ -1,4 +1,3 @@
-from typing import Iterable
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 
@@ -23,7 +22,6 @@ class CustomUser(AbstractUser):
         verbose_name = 'Пользователь'
         verbose_name_plural = 'Пользователи'
         ordering = ('-id',)
-    
 
     def __str__(self):
         return self.get_full_name()
@@ -50,6 +48,7 @@ class Balance(models.Model):
 
 class Subscription(models.Model):
     """Модель подписки пользователя на курс."""
+
     user = models.ForeignKey(
         to=CustomUser,
         related_name='subscription_courses',

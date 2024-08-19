@@ -1,11 +1,10 @@
-from django.db.models import Count, F, ExpressionWrapper, FloatField, Avg, Value, IntegerField, OuterRef, Subquery, Q
+from django.contrib.auth import get_user_model
+from django.db.models import Count, OuterRef, Subquery, Value
 from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404
-from rest_framework import status, viewsets, permissions
+from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from django.contrib.auth import get_user_model
-from django.db.models import Avg, Count
 
 from api.v1.permissions import IsStudentOrIsAdmin, ReadOnlyOrIsAdmin
 from api.v1.serializers.course_serializer import (CourseSerializer,
@@ -61,14 +60,14 @@ class GroupViewSet(viewsets.ModelViewSet):
 
 
 class CourseViewSet(viewsets.ModelViewSet):
-    """Курсы """
+    """Курсы."""
+
     queryset = Course.objects.select_related(
         'author').prefetch_related('lessons')
 
     permission_classes = (ReadOnlyOrIsAdmin,)
 
     def get_queryset(self):
-        user = self.request.user
         student_count_subquery = Subscription.objects.filter(
             course=OuterRef('pk')
         ).values(
@@ -103,9 +102,10 @@ class CourseViewSet(viewsets.ModelViewSet):
             lessons_count=Coalesce(
                 Subquery(lesson_count_subquery), Value(0)
             ),
-        ).exclude(
-            students__user=user
         )
+        user = self.request.user
+        if user.is_authenticated:
+            queryset = queryset.exclude(students__user=user)
         return queryset
 
     def get_serializer_class(self):
@@ -114,13 +114,12 @@ class CourseViewSet(viewsets.ModelViewSet):
         elif self.action in ('pay', ):
             return SubscriptionSerializer
         return CreateCourseSerializer
-    
+
     def get_serializer_context(self):
-        total_users_count = User.objects.filter(is_active=True).count()        
+        total_users_count = User.objects.filter(is_active=True).count()
         context = super().get_serializer_context()
         context['total_users_count'] = total_users_count
         return context
-
 
     @action(
         methods=['post'],
@@ -130,6 +129,7 @@ class CourseViewSet(viewsets.ModelViewSet):
     )
     def pay(self, request, pk):
         """Покупка доступа к курсу (подписка на курс)."""
+
         serializer = self.get_serializer(
             data={
                 'user': request.user.pk,

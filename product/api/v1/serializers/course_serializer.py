@@ -1,11 +1,11 @@
 from django.contrib.auth import get_user_model
-from django.db.models import Avg, Count
 from rest_framework import serializers
 from rest_framework.serializers import ValidationError
 from rest_framework.validators import UniqueTogetherValidator
 
 from courses.models import Course, Group, Lesson
-from users.models import Subscription
+from product.constants import (COURSE_ALREADY_EXISTS, GROUP_ALREADY_EXISTS,
+                               LESSON_ALREADY_EXISTS, MAX_QUANTITY_GROUPS)
 
 User = get_user_model()
 
@@ -38,7 +38,7 @@ class CreateLessonSerializer(serializers.ModelSerializer):
             UniqueTogetherValidator(
                 queryset=Lesson.objects.all(),
                 fields=('title', 'course',),
-                message='В данном курсе есть урок с таким же названием.'
+                message=LESSON_ALREADY_EXISTS
             ),
         ]
 
@@ -57,14 +57,14 @@ class StudentSerializer(serializers.ModelSerializer):
 
 class GroupSerializer(serializers.ModelSerializer):
     """Список групп."""
-    
+
     class Meta:
         model = Group
         fields = (
-            'id',     
-            'title',     
-            'course',     
-            'students',     
+            'id',
+            'title',
+            'course',
+            'students',
         )
 
 
@@ -81,7 +81,7 @@ class CreateGroupSerializer(serializers.ModelSerializer):
             UniqueTogetherValidator(
                 queryset=Group.objects.all(),
                 fields=('title', 'course',),
-                message='В данном курсе есть группа с таким же названием.'
+                message=GROUP_ALREADY_EXISTS
             ),
         ]
 
@@ -90,10 +90,7 @@ class CreateGroupSerializer(serializers.ModelSerializer):
         if course.groups.count() == 10:
             raise ValidationError(
                 {
-                    'errors': (
-                        'Количество групп на курс достигло '
-                        'максимального значения - 10.'
-                    ),
+                    'errors': MAX_QUANTITY_GROUPS,
                 }
             )
         return data
@@ -126,33 +123,33 @@ class CourseSerializer(serializers.ModelSerializer):
     lessons = MiniLessonSerializer(many=True, read_only=True)
     lessons_count = serializers.SerializerMethodField(read_only=True)
     students_count = serializers.SerializerMethodField(read_only=True)
-    groups_count = serializers.SerializerMethodField(read_only=True)  # ! тестовое поле, нужно убрать
     groups_filled_percent = serializers.SerializerMethodField(read_only=True)
     demand_course_percent = serializers.SerializerMethodField(read_only=True)
-    
+
     def get_lessons_count(self, obj):
         """Количество уроков в курсе."""
+
         return obj.lessons_count
 
     def get_students_count(self, obj):
         """Общее количество студентов на курсе."""
+
         return obj.students_count
 
-    def get_groups_count(self, obj):  # ! тестовое поле, нужно убрать
-        """Процент заполнения групп, если в группе максимум 30 чел.."""
-        return obj.groups_count
-    
     def get_groups_filled_percent(self, obj):
         """Процент заполнения групп, если в группе максимум 30 чел.."""
+
         if obj.groups_count > 0:
             return round(obj.students_count / (obj.groups_count * 30 / 100), 2)
         return 0.0
-    
 
     def get_demand_course_percent(self, obj):
         """Процент приобретения курса."""
-        return round(obj.students_count / self.context['total_users_count'] * 100, 2)
 
+        return round(
+            obj.students_count / self.context['total_users_count'] * 100,
+            ndigits=2
+        )
 
     class Meta:
         model = Course
@@ -166,7 +163,6 @@ class CourseSerializer(serializers.ModelSerializer):
             'lessons',
             'demand_course_percent',
             'students_count',
-            'groups_count',  # ! тестовое поле, нужно убрать
             'groups_filled_percent',
         )
 
@@ -186,6 +182,6 @@ class CreateCourseSerializer(serializers.ModelSerializer):
             UniqueTogetherValidator(
                 queryset=Course.objects.all(),
                 fields=('title', 'author',),
-                message='Данный курс уже существует.'
+                message=COURSE_ALREADY_EXISTS
             ),
         ]
