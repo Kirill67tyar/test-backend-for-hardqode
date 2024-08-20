@@ -56,13 +56,9 @@ TEST_DB=False  # True использовать SQLite, False использов�
 
 10. Создайте суперпользователя:
    
-   python manage.py createsuperuser
+   sudo docker compose exec backend python manage.py createsuperuser
 
-11. Запустите проект:
-
-   python manage.py runserver
-
-12. Обратите внимание что контейнер gateway настроен на порт 8080
+11. Обратите внимание что контейнер gateway настроен на порт 8080
 
    http://127.0.0.1:8080/api/v1/courses/
 ```
