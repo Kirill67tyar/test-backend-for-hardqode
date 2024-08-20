@@ -56,7 +56,9 @@ class GroupViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         course = get_object_or_404(Course, id=self.kwargs.get('course_id'))
-        return course.groups.prefetch_related('students')
+        return (course.groups
+                .select_related('course')
+                .prefetch_related('students'))
 
 
 class CourseViewSet(viewsets.ModelViewSet):
